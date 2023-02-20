@@ -1,0 +1,102 @@
+---
+title: "Create DESeq-DataSet"
+author: "Simon Holzinger"
+date: "2023-01-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r clear session, include=FALSE}
+rm(list=ls())
+#lapply(paste('package:',names(sessionInfo()$otherPkgs),sep=""),detach,character.only=TRUE,unload=TRUE)
+```
+
+# 1. Preperations
+
+#### Load Libraries
+
+The libraries loaded for import of Salmon data into a dataset accepted by DESeq2 are `readr`, `tximport`, `tximportData` and `GenomicFeatures`.
+
+```{r load libraries, message=FALSE}
+library("readr")
+library("tximport")
+#library("tximportData")
+library("GenomicFeatures")
+library("DESeq2")
+library("Rsubread")
+```
+
+#### Setting Paths
+
+Paths for the file containing sample information, annotation information and the count data have to be set. Additionaly the output directorie is created.
+
+```{r setting paths, message=FALSE}
+sampleFileDir <- "../../0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug"
+starDataDir <- "../../2_pipeline/02_alignment"
+gtfFile <- "../../2_pipeline/00_annotation/annotation.gtf"
+outDir <- "../../2_pipeline/03_differential-expression-analysis"
+
+
+dir.create(paste0(outDir,"/data/"),
+           showWarnings = F,
+           recursive = T)
+```
+
+#### Load Sample Info
+
+The sample information is loaded and named.
+
+```{r load sample information}
+samples <- read.csv(file.path(sampleFileDir,"sampleInformation.csv"), header=TRUE, colClasses = "character")
+rownames(samples) <- samples$SampleID
+```
+
+#### Load Quantification Data
+
+To get gene based counts from STAR mapping data, the reads are counted using featureCounts from RSubread. Multi mapping reads are counted as a fraction on all mapping locations if applicable.
+
+```{r load mapping data}
+
+starFiles <- list.files(starDataDir,
+           recursive = T,
+           pattern = ".bam$",
+           full.names = TRUE)
+
+
+
+count_table <- featureCounts(starFiles,
+                             annot.ext = gtfFile,
+                             isGTFAnnotationFile = TRUE,
+                             strandSpecific = 2,
+                             isPairedEnd = TRUE,
+                             nthreads = 20,
+                             countMultiMappingReads = TRUE,
+                             fraction = TRUE)
+
+colnames(count_table$counts) <- tools::file_path_sans_ext(tools::file_path_sans_ext(test$targets))
+
+```
+
+# 2. Create DESeqDataSet
+
+The DESeqDataset is created by using the count data and sample information.
+
+```{r}
+
+dds <- DESeqDataSetFromMatrix(countData = round(count_table$counts),
+                       colData = samples[order(samples$SampleID),],
+                       design = ~ timepoint + condition)
+
+save(dds, file=paste0(outDir,"/data/dds_fr.rda"))
+```
+
+## Session Information
+
+The following versions of R and R packages were used to generate the report above:
+
+```{r sessionInfo, echo=FALSE}
+sessionInfo()
+```
