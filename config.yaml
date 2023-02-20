@@ -1,0 +1,29 @@
+samples:
+  69_neg_Rep1: 0_data/reads/S489/S489_01_1-45_neg_S1
+  74_neg_Rep1: 0_data/reads/S489/S489_02_1-50_neg_S2
+  84_neg_Rep1: 0_data/reads/S489/S489_03_1-60_neg_S3
+  69_pos_Rep1: 0_data/reads/S489/S489_04_1-45_pos_S4
+  74_pos_Rep1: 0_data/reads/S489/S489_05_1-50_pos_S5
+  84_pos_Rep1: 0_data/reads/S489/S489_06_1-60_pos_S6
+  69_neg_Rep2: 0_data/reads/S489/S489_07_2-45_neg_S7
+  74_neg_Rep2: 0_data/reads/S489/S489_08_2-50_neg_S8
+  84_neg_Rep2: 0_data/reads/S489/S489_09_2-60_neg_S9
+  69_pos_Rep2: 0_data/reads/S489/S489_10_2-45_pos_S10
+  74_pos_Rep2: 0_data/reads/S489/S489_11_2-50_pos_S11
+  84_pos_Rep2: 0_data/reads/S489/S489_12_2-60_pos_S12
+  69_neg_Rep3: 0_data/reads/S489/S489_13_3-45_neg_S13
+  74_neg_Rep3: 0_data/reads/S489/S489_14_3-50_neg_S14
+  84_neg_Rep3: 0_data/reads/S489/S489_15_3-60_neg_S15
+  69_pos_Rep3: 0_data/reads/S489/S489_16_3-45_pos_S16
+  74_pos_Rep3: 0_data/reads/S489/S489_17_3-50_pos_S17
+  84_pos_Rep3: 0_data/reads/S489/S489_18_3-60_pos_S18
+adapters:
+  0_data/TrimmomaticAdapters/Illumina_stranded_mRNA.fa
+reference-genome:
+  0_data/reference/plasmoDB52/PlasmoDB-52_Pfalciparum3D7_Genome.fasta
+reference-annotation:
+  0_data/reference/plasmoDB52/PlasmoDB-52_Pfalciparum3D7.gff
+chromSizes:
+  0_data/reference/plasmoDB52/sizes.genome
+rndSeed:
+ 49561
