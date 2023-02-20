@@ -1,4 +1,79 @@
 samples:
+  00__Rep2:    0_data/reads/S446/S446_01_Rep2_0_FC1_S1
+  05_neg_Rep2: 0_data/reads/S446/S446_02_Rep2_5neg_FC1_S2
+  10_neg_Rep2: 0_data/reads/S446/S446_03_Rep2_10neg_FC1_S3
+  15_neg_Rep2: 0_data/reads/S446/S446_04_Rep2_15neg_FC1_S4
+  20_neg_Rep2: 0_data/reads/S446/S446_05_Rep2_20neg_FC1_S5
+  25_neg_Rep2: 0_data/reads/S446/S446_06_Rep2_25neg_FC1_S6
+  30_neg_Rep2: 0_data/reads/S446/S446_07_Rep2_30neg_FC1_S7
+  35_neg_Rep2: 0_data/reads/S446/S446_08_Rep2_35neg_FC1_S8
+  40_neg_Rep2: 0_data/reads/S446/S446_09_Rep2_40neg_FC1_S9
+  45_neg_Rep2: 0_data/reads/S446/S446_10_Rep2_45neg_FC1_S10
+  50_neg_Rep2: 0_data/reads/S446/S446_11_Rep2_50neg_FC1_S11
+  60_neg_Rep2: 0_data/reads/S446/S446_12_Rep2_60neg_FC1_S12
+  70_neg_Rep2: 0_data/reads/S446/S446_13_Rep2_70neg_FC1_S13
+  05_pos_Rep2: 0_data/reads/S446/S446_14_Rep2_5pos_FC1_S14
+  10_pos_Rep2: 0_data/reads/S446/S446_15_Rep2_10pos_FC1_S15
+  15_pos_Rep2: 0_data/reads/S446/S446_16_Rep2_15pos_FC1_S16
+  20_pos_Rep2: 0_data/reads/S446/S446_17_Rep2_20pos_FC1_S17
+  25_pos_Rep2: 0_data/reads/S446/S446_18_Rep2_25pos_FC1_S18
+  30_pos_Rep2: 0_data/reads/S446/S446_19_Rep2_30pos_FC1_S19
+  35_pos_Rep2: 0_data/reads/S446/S446_20_Rep2_35pos_FC1_S20
+  40_pos_Rep2: 0_data/reads/S446/S446_21_Rep2_40pos_FC1_S21
+  45_pos_Rep2: 0_data/reads/S446/S446_22_Rep2_45pos_FC1_S22
+  50_pos_Rep2: 0_data/reads/S446/S446_23_Rep2_50pos_FC1_S23
+  60_pos_Rep2: 0_data/reads/S446/S446_24_Rep2_60pos_FC1_S24
+  70_pos_Rep2: 0_data/reads/S446/S446_25_Rep2_70pos_FC1_S25
+  00__Rep3:    0_data/reads/S446/S446_01_Rep3_0_FC2_S1
+  05_neg_Rep3: 0_data/reads/S446/S446_02_Rep3_5neg_FC2_S2
+  10_neg_Rep3: 0_data/reads/S446/S446_03_Rep3_10neg_FC2_S3
+  15_neg_Rep3: 0_data/reads/S446/S446_04_Rep3_15neg_FC2_S4
+  20_neg_Rep3: 0_data/reads/S446/S446_05_Rep3_20neg_FC2_S5
+  25_neg_Rep3: 0_data/reads/S446/S446_06_Rep3_25neg_FC2_S6
+  30_neg_Rep3: 0_data/reads/S446/S446_07_Rep3_30neg_FC2_S7
+  35_neg_Rep3: 0_data/reads/S446/S446_08_Rep3_35neg_FC2_S8
+  40_neg_Rep3: 0_data/reads/S446/S446_09_Rep3_40neg_FC2_S9
+  45_neg_Rep3: 0_data/reads/S446/S446_10_Rep3_45neg_FC2_S10
+  50_neg_Rep3: 0_data/reads/S446/S446_11_Rep3_50neg_FC2_S11
+  60_neg_Rep3: 0_data/reads/S446/S446_12_Rep3_60neg_FC2_S12
+  70_neg_Rep3: 0_data/reads/S446/S446_13_Rep3_70neg_FC2_S13
+  05_pos_Rep3: 0_data/reads/S446/S446_14_Rep3_5pos_FC2_S14
+  10_pos_Rep3: 0_data/reads/S446/S446_15_Rep3_10pos_FC2_S15
+  15_pos_Rep3: 0_data/reads/S446/S446_16_Rep3_15pos_FC2_S16
+  20_pos_Rep3: 0_data/reads/S446/S446_17_Rep3_20pos_FC2_S17
+  25_pos_Rep3: 0_data/reads/S446/S446_18_Rep3_25pos_FC2_S18
+  30_pos_Rep3: 0_data/reads/S446/S446_19_Rep3_30pos_FC2_S19
+  35_pos_Rep3: 0_data/reads/S446/S446_20_Rep3_35pos_FC2_S20
+  40_pos_Rep3: 0_data/reads/S446/S446_21_Rep3_40pos_FC2_S21
+  45_pos_Rep3: 0_data/reads/S446/S446_22_Rep3_45pos_FC2_S22
+  50_pos_Rep3: 0_data/reads/S446/S446_23_Rep3_50pos_FC2_S23
+  60_pos_Rep3: 0_data/reads/S446/S446_24_Rep3_60pos_FC2_S24
+  70_pos_Rep3: 0_data/reads/S446/S446_25_Rep3_70pos_FC2_S25
+  00__Rep4:    0_data/reads/S446/S446_01_Rep4_0_FC3_S1
+  05_neg_Rep4: 0_data/reads/S446/S446_02_Rep4_5neg_FC3_S2
+  10_neg_Rep4: 0_data/reads/S446/S446_03_Rep4_10neg_FC3_S3
+  15_neg_Rep4: 0_data/reads/S446/S446_04_Rep4_15neg_FC3_S4
+  20_neg_Rep4: 0_data/reads/S446/S446_05_Rep4_20neg_FC3_S5
+  25_neg_Rep4: 0_data/reads/S446/S446_06_Rep4_25neg_FC3_S6
+  30_neg_Rep4: 0_data/reads/S446/S446_07_Rep4_30neg_FC3_S7
+  35_neg_Rep4: 0_data/reads/S446/S446_08_Rep4_35neg_FC3_S8
+  40_neg_Rep4: 0_data/reads/S446/S446_09_Rep4_40neg_FC3_S9
+  45_neg_Rep4: 0_data/reads/S446/S446_10_Rep4_45neg_FC3_S10
+  50_neg_Rep4: 0_data/reads/S446/S446_11_Rep4_50neg_FC3_S11
+  60_neg_Rep4: 0_data/reads/S446/S446_12_Rep4_60neg_FC3_S12
+  70_neg_Rep4: 0_data/reads/S446/S446_13_Rep4_70neg_FC3_S13
+  05_pos_Rep4: 0_data/reads/S446/S446_14_Rep4_5pos_FC3_S14
+  10_pos_Rep4: 0_data/reads/S446/S446_15_Rep4_10pos_FC3_S15
+  15_pos_Rep4: 0_data/reads/S446/S446_16_Rep4_15pos_FC3_S16
+  20_pos_Rep4: 0_data/reads/S446/S446_17_Rep4_20pos_FC3_S17
+  25_pos_Rep4: 0_data/reads/S446/S446_18_Rep4_25pos_FC3_S18
+  30_pos_Rep4: 0_data/reads/S446/S446_19_Rep4_30pos_FC3_S19
+  35_pos_Rep4: 0_data/reads/S446/S446_20_Rep4_35pos_FC3_S20
+  40_pos_Rep4: 0_data/reads/S446/S446_21_Rep4_40pos_FC3_S21
+  45_pos_Rep4: 0_data/reads/S446/S446_22_Rep4_45pos_FC3_S22
+  50_pos_Rep4: 0_data/reads/S446/S446_23_Rep4_50pos_FC3_S23
+  60_pos_Rep4: 0_data/reads/S446/S446_24_Rep4_60pos_FC3_S24
+  70_pos_Rep4: 0_data/reads/S446/S446_25_Rep4_70pos_FC3_S25
   69_neg_Rep1: 0_data/reads/S489/S489_01_1-45_neg_S1
   74_neg_Rep1: 0_data/reads/S489/S489_02_1-50_neg_S2
   84_neg_Rep1: 0_data/reads/S489/S489_03_1-60_neg_S3
@@ -17,6 +92,24 @@ samples:
   69_pos_Rep3: 0_data/reads/S489/S489_16_3-45_pos_S16
   74_pos_Rep3: 0_data/reads/S489/S489_17_3-50_pos_S17
   84_pos_Rep3: 0_data/reads/S489/S489_18_3-60_pos_S18
+  20_ctrl_Rep1: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_01_1_20_neg_S1
+  25_ctrl_Rep1: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_02_1_25_neg_S2
+  35_ctrl_Rep1: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_03_1_35_neg_S3
+  20_treat_Rep1: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_04_1_20_pos_S4
+  25_treat_Rep1: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_05_1_25_pos_S5
+  35_treat_Rep1: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_06_1_35_pos_S6
+  20_ctrl_Rep2: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_07_2_20_neg_S7
+  25_ctrl_Rep2: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_08_2_25_neg_S8
+  35_ctrl_Rep2: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_09_2_35_neg_S9
+  20_treat_Rep2: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_10_2_20_pos_S10
+  25_treat_Rep2: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_11_2_25_pos_S11
+  35_treat_Rep2: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_12_2_35_pos_S12
+  20_ctrl_Rep3: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_13_3_20_neg_S13
+  25_ctrl_Rep3: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_14_3_25_neg_S14
+  35_ctrl_Rep3: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_15_3_35_neg_S15
+  20_treat_Rep3: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_16_3_20_pos_S16
+  25_treat_Rep3: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_17_3_25_pos_S17
+  35_treat_Rep3: 0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug/S515_18_3_35_pos_S18  
 adapters:
   0_data/TrimmomaticAdapters/Illumina_stranded_mRNA.fa
 reference-genome:
