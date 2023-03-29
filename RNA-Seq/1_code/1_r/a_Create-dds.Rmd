@@ -18,12 +18,9 @@ rm(list=ls())
 
 #### Load Libraries
 
-The libraries loaded for import of Salmon data into a dataset accepted by DESeq2 are `readr`, `tximport`, `tximportData` and `GenomicFeatures`.
-
 ```{r load libraries, message=FALSE}
 library("readr")
 library("tximport")
-#library("tximportData")
 library("GenomicFeatures")
 library("DESeq2")
 library("Rsubread")
@@ -31,7 +28,7 @@ library("Rsubread")
 
 #### Setting Paths
 
-Paths for the file containing sample information, annotation information and the count data have to be set. Additionaly the output directorie is created.
+Paths for the file containing sample information, annotation information and the count data have to be set. Additionaly the output directory is created.
 
 ```{r setting paths, message=FALSE}
 sampleFileDir <- "../../0_data/2022-12-22_Plasmodium_RNA-Seq_wDrug"
@@ -88,7 +85,7 @@ The DESeqDataset is created by using the count data and sample information.
 
 dds <- DESeqDataSetFromMatrix(countData = round(count_table$counts),
                        colData = samples[order(samples$SampleID),],
-                       design = ~ timepoint + condition)
+                       design = ~ timepoint * condition)
 
 save(dds, file=paste0(outDir,"/data/dds_fr.rda"))
 ```

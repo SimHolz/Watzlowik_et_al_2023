@@ -1,0 +1,540 @@
+"""
+Author: Simon Holzinger
+Affiliation: AG Längst, University of Regensburg
+Aim: Analysis of Plasmodium falciparum RNase-Seq Data
+Date: 2021-06-09
+Run: snakemake --use-conda Snakefile
+Workflow:
+    Preprocessing:
+        - FastQC of raw reads
+        - trimming of reads with Trimmomatic
+        - FastQC of trimmed reads
+
+"""
+
+configfile: "config.yaml"
+
+
+SAMPLE = expand(config["samples"])
+
+outSet = set()
+for samples in SAMPLE:
+    spltS = str.split(samples,"_")
+    spltS = spltS[0] + "_" + spltS[1] + "_" + spltS[2]
+    outSet.add(spltS)
+TREATMENT = list(outSet)
+
+
+####################
+# Main Rule
+####################
+
+rule all:
+  input:
+    expand("2_pipeline/00_qc/preprocessing/raw_fastqc/{sample}_{num}_fastqc.html", sample = config['samples'], num = [1,2]),
+    "2_pipeline/00_qc/mapping/multiqc/multiqc_report.html",
+    "2_pipeline/00_qc/filtered/multiqc/multiqc_report.html",
+    expand("2_pipeline/03_alignment_filtered/bam/{sample}.s.bam", sample = config['samples']),
+    expand("2_pipeline/03_alignment_filtered/bam/{sample}.s.bam.bai", sample = config['samples']),
+    #expand("2_pipeline/06_NucleosomeDynamics/statistics/nucleR/{sample}_genes.csv", sample=config["samples"]),
+    expand("2_pipeline/06_NucleosomeDynamics/statistics/NFR/{sample}_genome.csv", sample=config["samples"]),
+    expand("2_pipeline/06_NucleosomeDynamics/statistics/txstart/{sample}_genes.csv", sample=config["samples"]),
+    #expand("2_pipeline/06_NucleosomeDynamics/statistics/stiffness/{sample}_genes.csv", sample=config["samples"]),
+    #expand("2_pipeline/06_NucleosomeDynamics/statistics/periodicity/{sample}_genes.csv", sample=config["samples"]),
+    "2_pipeline/05_differential_nucleosome_positioning/results/pooled/iKO_0h_high.Fnor.smooth.positions.ref_adjust.xls",
+    expand("2_pipeline/03_alignment_filtered/bw_NucCenter/{sample}.bw", sample=config["samples"] ), #Nucleosome centers for ACF and PSD plots
+    "2_pipeline/00_qc/mapping/deeptools_correlation/heatmap_SpearmanCorr_fragCounts.png",
+    "2_pipeline/00_qc/filtered/deeptools_correlation/heatmap_SpearmanCorr_fragCounts.png"
+
+rule raw_fastqc:
+    input:
+        lambda wildcards: f"{config['samples'][wildcards.sample]}_R{wildcards.num}_001.fastq.gz"
+    output:
+        html="2_pipeline/00_qc/preprocessing/raw_fastqc/{sample}_{num}_fastqc.html",
+        zip="2_pipeline/00_qc/preprocessing/raw_fastqc/{sample}_{num}_fastqc.zip"
+    wrapper:
+        "0.35.0/bio/fastqc"
+
+####################
+# Trim Reads
+####################
+
+rule trim_reads:
+    input:
+        r1=lambda wildcards: f"{config['samples'][wildcards.sample]}_R1_001.fastq.gz",
+        r2=lambda wildcards: f"{config['samples'][wildcards.sample]}_R2_001.fastq.gz",
+    output:
+        temp("2_pipeline/01_trimmed_reads/{sample}-trimmed-pair1.fastq"),
+        temp("2_pipeline/01_trimmed_reads/{sample}-trimmed-pair2.fastq")
+    log:
+        "2_pipeline/00_logs/skewer/{sample}.log"
+    params:
+        outDir="2_pipeline/01_trimmed_reads/{sample}"
+    threads: 1
+    conda:
+        "4_envs/skewer.yaml"
+    shell:
+        "skewer -x AGATCGGAAGAGCACACGTCTGAACTCCAGTCA -y AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT {input.r1} {input.r2} -o {params.outDir}"
+
+####################
+# Bowtie Index
+####################
+rule index_bowtie2:
+    input:
+        config["reference-genome"]
+    output:
+        "2_pipeline/00_index/bowtie2/reference.1.bt2",
+        "2_pipeline/00_index/bowtie2/reference.2.bt2",
+        "2_pipeline/00_index/bowtie2/reference.3.bt2",
+        "2_pipeline/00_index/bowtie2/reference.4.bt2",
+        "2_pipeline/00_index/bowtie2/reference.rev.1.bt2",
+        "2_pipeline/00_index/bowtie2/reference.rev.2.bt2"
+    params:
+        seed=config["rndSeed"],
+        basename="2_pipeline/00_index/bowtie2/reference"
+    threads: 24
+    log:
+        "2_pipeline/00_logs/bowtie2_index/reference.log"
+    conda:
+        "4_envs/bowtie2.yaml"
+    shell:
+        "bowtie2-build --seed {params.seed} --threads {threads} {input} {params.basename} &> {log}"
+
+####################
+# Alignment Bowtie
+####################
+rule alignment_bowtie2:
+    input:
+        r1="2_pipeline/01_trimmed_reads/{sample}-trimmed-pair1.fastq",
+        r2="2_pipeline/01_trimmed_reads/{sample}-trimmed-pair2.fastq",
+        index_1="2_pipeline/00_index/bowtie2/reference.1.bt2",
+        index_2="2_pipeline/00_index/bowtie2/reference.2.bt2",
+        index_3="2_pipeline/00_index/bowtie2/reference.3.bt2",
+        index_4="2_pipeline/00_index/bowtie2/reference.4.bt2",
+        index_rev1="2_pipeline/00_index/bowtie2/reference.rev.1.bt2",
+        index_rev2="2_pipeline/00_index/bowtie2/reference.rev.2.bt2"
+    priority: 1
+    output:
+        temp("2_pipeline/tmp/{sample}.sam")
+    params:
+        index=expand("2_pipeline/00_index/bowtie2/reference"),
+        seed=config["rndSeed"],
+#        extra="-L 20 -R 3 -N 1 --no-discordant -i S,5,0.50 "
+        extra="--very-sensitive --no-discordant "
+                "--no-mixed "
+                "--no-unal "
+
+    threads: 12
+    log:
+        "2_pipeline/00_logs/bowtie2/{sample}.log"
+    benchmark:
+        "2_pipeline/00_benchmarks/bowtie2/{sample}.bowtie2.benchmark.txt"
+    conda:
+        "4_envs/bowtie2.yaml"
+    shell:
+        "bowtie2 -x {params.index} -1 {input.r1} -2 {input.r2} -S {output} -p {threads} {params.extra} &> {log}"
+
+rule sam_to_bam:
+    input:
+        "2_pipeline/tmp/{sample}.sam"
+    output:
+        temp("2_pipeline/02_alignment/unsort/{sample}.bam")
+    priority: 2
+    conda:
+        "4_envs/samtools.yaml"
+    threads: 8
+    shell:
+        "samtools view -b -@ {threads} -o {output} {input}"
+
+rule sort_bam:
+    input:
+        "2_pipeline/02_alignment/unsort/{sample}.bam"
+    output:
+        "2_pipeline/02_alignment/sort/{sample}.s.bam"
+    priority: 3
+    conda:
+        "4_envs/samtools.yaml"
+    threads: 8
+    shell:
+        "samtools sort -m 1G -@ {threads} -o {output} {input}"
+
+rule index_bam:
+    input:
+        "2_pipeline/02_alignment/sort/{sample}.s.bam"
+    output:
+        "2_pipeline/02_alignment/sort/{sample}.s.bam.bai"
+    priority: 3
+    conda:
+        "4_envs/samtools.yaml"
+    threads: 8
+    shell:
+        "samtools index {input}"
+
+rule qualimap:
+    input:
+        "2_pipeline/02_alignment/sort/{sample}.s.bam"
+    output:
+        "2_pipeline/00_qc/mapping/qualimap/{sample}_qualimap/qualimapReport.html"
+    params:
+        outdir="2_pipeline/00_qc/mapping/qualimap/{sample}_qualimap/",
+        extra="--java-mem-size=4G"
+    conda:
+        "4_envs/qualimap.yaml"
+    log:
+        "2_pipeline/00_logs/qualimap/{sample}.log"
+    shell:
+        "qualimap bamqc -bam {input} {params.extra} -outdir {params.outdir} -c > {log}"
+
+rule multiqc_mapping:
+    input:
+        expand("2_pipeline/00_qc/mapping/qualimap/{sample}_qualimap/qualimapReport.html", sample = config['samples'])
+    output:
+        "2_pipeline/00_qc/mapping/multiqc/multiqc_report.html"
+    params:
+        qualimap_dir="2_pipeline/00_qc/mapping/qualimap/",
+        outdir="2_pipeline/00_qc/mapping/multiqc/",
+    conda:
+        "4_envs/multiqc.yaml"
+    shell:
+        "multiqc -o {params.outdir} {params.qualimap_dir} -f "
+
+rule deeptools_alignmentSieve:
+    input:
+        bam="2_pipeline/02_alignment/sort/{sample}.s.bam",
+        bai="2_pipeline/02_alignment/sort/{sample}.s.bam.bai"
+    output:
+        bam=temp("2_pipeline/03_alignment_filtered/unsorted/{sample}.bam"),
+        stats="2_pipeline/00_qc/filtered/deeptools_alignmentSieve/{sample}.txt"
+    params:
+        extra="--minFragmentLength 75 "
+            "--maxFragmentLength 175 " #200
+            "--samFlagInclude 2 " # only output reads mapped in proper pair
+            "--minMappingQuality 20 " # Filter for min mapping quality of 20
+    threads: 8
+    log: "2_pipeline/00_logs/deeptools_alignmentSieve/{sample}.log"
+    conda:
+        "4_envs/deeptools.yaml"
+    shell:
+        "alignmentSieve -b {input.bam} {params.extra} -p {threads} -o {output.bam} --filterMetrics {output.stats} > {log}"
+
+
+rule sort_filtered_bam:
+    input:
+        "2_pipeline/03_alignment_filtered/unsorted/{sample}.bam"
+    output:
+        "2_pipeline/03_alignment_filtered/bam/{sample}.s.bam"
+    threads: 8
+    shell:
+        "samtools sort -m 1G -@ {threads} -o {output} {input}"
+
+rule index_filtered_bam:
+    input:
+        "2_pipeline/03_alignment_filtered/bam/{sample}.s.bam"
+    output:
+        "2_pipeline/03_alignment_filtered/bam/{sample}.s.bam.bai"
+    shell:
+        "samtools index {input}"
+
+rule get_filtered_bigwig_NucCenter:
+    input:
+        bam="2_pipeline/03_alignment_filtered/bam/{sample}.s.bam",
+        bai="2_pipeline/03_alignment_filtered/bam/{sample}.s.bam.bai"
+    output:
+        "2_pipeline/03_alignment_filtered/bw_NucCenter/{sample}.bw"
+    threads: 8
+    log:
+        "2_pipeline/00_logs/deeptools_bamCoverage_nucCenter/{sample}.log"
+    conda:
+        "4_envs/deeptools.yaml"
+    params:
+        extra="--effectiveGenomeSize 23332839 "
+                "--normalizeUsing RPGC "
+                "--MNase "
+                "-bs 1 "
+    shell:
+        "bamCoverage -p {threads} -b {input.bam} -o {output} {params.extra} 2> {log}"
+
+
+rule qualimap_filtered:
+    input:
+        "2_pipeline/03_alignment_filtered/bam/{sample}.s.bam"
+    output:
+        "2_pipeline/00_qc/filtered/qualimap/{sample}_qualimap/qualimapReport.html"
+    params:
+        annotationFile=config["reference-annotation"],
+        outdir="2_pipeline/00_qc/filtered/qualimap/{sample}_qualimap/",
+        extra="--java-mem-size=4G"
+    conda:
+        "4_envs/qualimap.yaml"
+    log:
+        "2_pipeline/00_logs/qualimap_filtered/{sample}.log"
+    shell:
+        "qualimap bamqc -bam {input} {params.extra} -gff {params.annotationFile} -outdir {params.outdir} -c > {log}"
+
+rule multiqc_filtered:
+    input:
+        expand("2_pipeline/00_qc/filtered/qualimap/{sample}_qualimap/qualimapReport.html", sample = config['samples'])
+    output:
+        "2_pipeline/00_qc/filtered/multiqc/multiqc_report.html"
+    params:
+        qualimap_dir="2_pipeline/00_qc/filtered/qualimap/",
+        outdir="2_pipeline/00_qc/filtered/multiqc/",
+    conda:
+        "4_envs/multiqc.yaml"
+    shell:
+        "multiqc -o {params.outdir} {params.qualimap_dir} -f "
+#
+# rule QC_filter:
+#     input:
+#         "2_pipeline/02_alignment/sort/{sample}.s.bam"
+#     output:
+#         "2_pipeline/03_alignment_filtered/{sample}_qc.s.bam"
+#     threads: 8
+#     shell:
+#         "samtools view -q 20 -@ {threads} -Sb {input} -o {output}"
+
+# rule length_filter:
+#     input:
+#         "2_pipeline/03_alignment_filtered/{sample}_qc.s.bam"
+#     output:
+#         temp("2_pipeline/03_alignment_filtered/bam/{sample}.s.bam")
+#     conda:
+#         "4_envs/fgbio.yaml"
+#     shell:
+#         "fgbio FilterBam -i {input} -o {output} --min-insert-size=75 --max-insert-size=175"
+
+######################
+# Nucleosome Positioning with Nucleosome Dynamics
+#
+# by Simon Holzinger
+####################
+
+rule NucDyn_ReadBam:
+    input:
+        "2_pipeline/03_alignment_filtered/bam/{sample}.s.bam"
+    output:
+        "2_pipeline/06_NucleosomeDynamics/RData/{sample}.RData"
+    log:
+        "2_pipeline/00_logs/NucleosomeDynamics/readBam/{sample}.log"
+    shell:
+        "RScript /Users/simon/Projects/for_Maresa/NucDyn/NucleosomeDynamics/bin/readBAM.R --input {input} --output {output} --type paired > {log}"
+
+rule NucDyn_nucleR:
+    input:
+        "2_pipeline/06_NucleosomeDynamics/RData/{sample}.RData"
+    output:
+        "2_pipeline/06_NucleosomeDynamics/nucleR/{sample}.gff"
+    log:
+        "2_pipeline/00_logs/NucleosomeDynamics/nucleR/{sample}.log"
+    threads: 4
+    shell:
+        "RScript /Users/simon/Projects/for_Maresa/NucDyn/NucleosomeDynamics/bin/nucleR.R --input {input} --output {output} --type paired --fragmentLen 175 --cores 4 --thresholdPercentage 50 > {log}"
+
+rule NucDyn_nucleR_stats:
+    input:
+        nucleR="2_pipeline/06_NucleosomeDynamics/nucleR/{sample}.gff",
+        gff="0_data/reference/pf_nucDyn.gff"
+    output:
+        outGenes="2_pipeline/06_NucleosomeDynamics/statistics/nucleR/{sample}_genes.csv",
+        outGw="2_pipeline/06_NucleosomeDynamics/statistics/nucleR/{sample}_genome.csv"
+    log:
+        "2_pipeline/00_logs/NucleosomeDynamics/nucleR_stats/{sample}.log"
+    shell:
+        "RScript /Users/simon/Projects/for_Maresa/NucDyn/NucleosomeDynamics/statistics/nucleR.R --input {input.nucleR} --genome {input.gff} --out_genes {output.outGenes} --out_gw {output.outGw} > {log}"
+
+rule NucDyn_NFR:
+    input:
+        nucleR="2_pipeline/06_NucleosomeDynamics/nucleR/{sample}.gff"
+    output:
+        "2_pipeline/06_NucleosomeDynamics/NFR/{sample}.gff"
+    log:
+        "2_pipeline/00_logs/NucleosomeDynamics/NFR/{sample}.log"
+    shell:
+        "RScript /Users/simon/Projects/for_Maresa/NucDyn/NucleosomeDynamics/bin/NFR.R --input {input.nucleR} --output {output} --threshold 500 > {log}"
+
+rule NucDyn_NFR_stats:
+    input:
+        NFR="2_pipeline/06_NucleosomeDynamics/NFR/{sample}.gff",
+        gff="0_data/reference/pf_nucDyn.gff"
+    output:
+        "2_pipeline/06_NucleosomeDynamics/statistics/NFR/{sample}_genome.csv"
+    log:
+        "2_pipeline/00_logs/NucleosomeDynamics/NFR_stats/{sample}.log"
+    shell:
+        "RScript /Users/simon/Projects/for_Maresa/NucDyn/NucleosomeDynamics/statistics/NFR.R --input {input.NFR} --genome {input.gff} --out_gw {output} > {log}"
+
+rule NucDyn_txstart:
+    input:
+        nucleR="2_pipeline/06_NucleosomeDynamics/nucleR/{sample}.gff",
+        gff="0_data/reference/pf_nucDyn.gff"
+    output:
+        "2_pipeline/06_NucleosomeDynamics/txstart/{sample}.gff"
+    threads: 8
+    log:
+        "2_pipeline/00_logs/NucleosomeDynamics/txstart/{sample}.log"
+    shell:
+        "RScript /Users/simon/Projects/for_Maresa/NucDyn/NucleosomeDynamics/bin/txstart.R --calls {input.nucleR} --genome {input.gff} --output {output} --cores {threads} > {log}"
+
+rule NucDyn_txstart_stats:
+    input:
+        NFR="2_pipeline/06_NucleosomeDynamics/txstart/{sample}.gff",
+        gff="0_data/reference/pf_nucDyn.gff"
+    output:
+        outGenes="2_pipeline/06_NucleosomeDynamics/statistics/txstart/{sample}_genes.csv",
+        outGw="2_pipeline/06_NucleosomeDynamics/statistics/txstart/{sample}_genome.png",
+        outGwPlt="2_pipeline/06_NucleosomeDynamics/statistics/txstart/{sample}_genome2.png"
+    log:
+        "2_pipeline/00_logs/NucleosomeDynamics/txstart_stats/{sample}.log"
+    shell:
+        "RScript /Users/simon/Projects/for_Maresa/NucDyn/NucleosomeDynamics/statistics/txstart.R --input {input.NFR} --genome {input.gff} --out_genes {output.outGenes} --out_gw {output.outGw} --out_gw2 {output.outGwPlt} > {log}"
+
+rule NucDyn_periodicity:
+    input:
+        nucleR="2_pipeline/06_NucleosomeDynamics/nucleR/{sample}.gff",
+        RData="2_pipeline/06_NucleosomeDynamics/RData/{sample}.RData",
+        gff="0_data/reference/pf_nucDyn.gff"
+    output:
+        gff="2_pipeline/06_NucleosomeDynamics/periodicity/{sample}.gff",
+        bw="2_pipeline/06_NucleosomeDynamics/periodicity/{sample}.bw"
+    params:
+        ChromSizes = config["chromSizes"]
+    threads: 1
+    log:
+        "2_pipeline/00_logs/NucleosomeDynamics/periodicity/{sample}.log"
+    shell:
+        "RScript /Users/simon/Projects/for_Maresa/NucDyn/NucleosomeDynamics/bin/periodicity.R --calls {input.nucleR} --reads {input.RData} --type paired --gffOutput {output.gff} --bwOutput {output.bw} --cores {threads} --genes {input.gff} --chrom_sizes {params.ChromSizes} --periodicity 155 > {log}"
+
+rule NucDyn_periodicity_stats:
+    input:
+        NFR="2_pipeline/06_NucleosomeDynamics/periodicity/{sample}.gff",
+        gff="0_data/reference/pf_nucDyn.gff"
+    output:
+        outGenes="2_pipeline/06_NucleosomeDynamics/statistics/periodicity/{sample}_genes.csv",
+        outGw="2_pipeline/06_NucleosomeDynamics/statistics/periodicity/{sample}_genome.csv"
+    log:
+        "2_pipeline/00_logs/NucleosomeDynamics/periodicity_stats/{sample}.log"
+    shell:
+        "RScript /Users/simon/Projects/for_Maresa/NucDyn/NucleosomeDynamics/statistics/periodicity.R  --input {input.NFR} --genome {input.gff} --out_genes {output.outGenes} --out_gw {output.outGw} > {log}"
+
+rule NucDyn_stiffness:
+    input:
+        nucleR="2_pipeline/06_NucleosomeDynamics/nucleR/{sample}.gff",
+        RData="2_pipeline/06_NucleosomeDynamics/RData/{sample}.RData"
+    output:
+        "2_pipeline/06_NucleosomeDynamics/stiffness/{sample}.gff"
+    log:
+        "2_pipeline/00_logs/NucleosomeDynamics/stiffness/{sample}.log"
+    shell:
+        "RScript /Users/simon/Projects/for_Maresa/NucDyn/NucleosomeDynamics/bin/stiffness.R --calls {input.nucleR} --reads {input.RData} --output {output} > {log}"
+
+rule NucDyn_stiffness_stats:
+    input:
+        NFR="2_pipeline/06_NucleosomeDynamics/stiffness/{sample}.gff",
+        gff="0_data/reference/pf_nucDyn.gff"
+    output:
+        outGenes="2_pipeline/06_NucleosomeDynamics/statistics/stiffness/{sample}_genes.csv",
+        outGw="2_pipeline/06_NucleosomeDynamics/statistics/stiffness/{sample}_genome.png",
+        outGwPlt="2_pipeline/06_NucleosomeDynamics/statistics/stiffness/{sample}_genome2.png"
+    log:
+        "2_pipeline/00_logs/NucleosomeDynamics/stiffness_stats/{sample}.log"
+    shell:
+        "RScript /Users/simon/Projects/for_Maresa/NucDyn/NucleosomeDynamics/statistics/stiffness.R --input {input.NFR} --genome {input.gff} --out_genes {output.outGenes} --out_gw $PWD/{output.outGw} --out_gw2 $PWD/{output.outGwPlt}> {log}"
+
+
+######################
+# Nucleosome Positioning with DANPOS
+#
+# by Simon Holzinger
+####################
+
+
+
+rule danpos_diffNuc_prep:
+    input:
+        bam="2_pipeline/03_alignment_filtered/bam/{sample}.s.bam",
+        bai="2_pipeline/03_alignment_filtered/bam/{sample}.s.bam.bai"
+    output:
+        temp("2_pipeline/05_differential_nucleosome_positioning/{trt}/{sample}.bam")
+    params:
+        oDir = "2_pipeline/05_differential_nucleosome_positioning/",
+        TREAT = TREATMENT
+    priority: 2
+    run:
+        for trtmnts in params.TREAT:
+            shellcmd = "mkdir " + params.oDir + trtmnts
+            if str(trtmnts) in str(input):
+                shellcmd_bam = "cp " + str(input.bam) + " " + str(params.oDir) + str(trtmnts) + "/" + str(wildcards.sample) + ".bam"
+                shellcmd_bai = "cp " + str(input.bai) + " " + str(params.oDir) + str(trtmnts) + "/" + str(wildcards.sample) + ".bam.bai"
+                shell(shellcmd_bam)
+                shell(shellcmd_bai)
+
+# Create String for danpos input. It has the form of SampleA/:Control/,SampleB/:Control/,SampleC/:Control/
+danpos_sample_string = False
+for s in TREATMENT:
+    s = str(s) + "/"
+    if danpos_sample_string == False:
+        danpos_sample_string = s
+    else:
+        danpos_sample_string = ",".join((danpos_sample_string,s))
+
+rule danpos_diff:
+    input:
+        a = expand("2_pipeline/05_differential_nucleosome_positioning/{trt}/{trt}_Rep1.bam", trt = TREATMENT),
+        b = expand("2_pipeline/05_differential_nucleosome_positioning/{trt}/{trt}_Rep2.bam", trt = TREATMENT),
+    output:
+        "2_pipeline/05_differential_nucleosome_positioning/results/pooled/iKO_0h_high.Fnor.smooth.positions.ref_adjust.xls"
+    params:
+        inputString = danpos_sample_string,
+        outDir = "results", #results
+        extra= "-m 1 "
+                # "-c T5/:60352728,T10/:46948322,T15/:50055682,T20/:66663946,T25/:44947768,T30/:60007852,T35/:39796810,T40/:40324604 "
+                "-c 51137214 " #51137214
+                "--extend 73 " #73
+                "-a 1 " #1
+                "-jd 100 " #100
+                "-e 1 " #1
+                "-z 20 "# 20
+                "-s 1", #save intermediate data
+    conda: "4_envs/danpos_v3.1.yaml"
+    log:
+        "2_pipeline/05_differential_nucleosome_positioning/results/danpos.log"
+    shell:
+        """
+        cd 2_pipeline/05_differential_nucleosome_positioning/
+        python3 {config[danpos-executable]} dpos {params.inputString} -o {params.outDir} {params.extra} > ../../{log}
+        """
+
+####################
+# Sample Correlations
+####################
+rule bam_summary:
+    input:
+        bam=expand("2_pipeline/03_alignment_filtered/bam/{sample}.s.bam", sample=config["samples"]),
+        idx=expand("2_pipeline/03_alignment_filtered/bam/{sample}.s.bam.bai", sample=config["samples"])
+    output:
+        "2_pipeline/00_qc/filtered/deeptools_correlation/result_matrix.npz"
+    params:
+        extra="--smartLabels "
+                "-bs 100 "
+                "-e "
+    threads: 12
+    conda:
+        "4_envs/deeptools.yaml"
+    shell:
+        "multiBamSummary bins --bamfiles {input.bam} -o {output} -p {threads} {params.extra}"
+
+rule plot_correlation:
+    input:
+        "2_pipeline/00_qc/filtered/deeptools_correlation/result_matrix.npz"
+    output:
+        "2_pipeline/00_qc/filtered/deeptools_correlation/heatmap_SpearmanCorr_fragCounts.png"
+    params:
+        extra="--plotTitle 'Spearman Correlation of Read Counts' "
+        "--whatToPlot heatmap "
+        "--colorMap RdYlBu "
+        "--plotNumbers "
+        "--skipZeros "
+    conda:
+        "4_envs/deeptools.yaml"
+    shell:
+        "plotCorrelation -in {input} --corMethod spearman -o {output} {params.extra}"

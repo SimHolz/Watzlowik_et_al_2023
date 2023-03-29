@@ -1,0 +1,28 @@
+samples:
+  noKO_0h_low_Rep1: 0_data/reads/S499/S499_01_1_noKO_0_low_S1
+  noKO_0h_high_Rep1: 0_data/reads/S499/S499_02_1_noKO_0_high_S2
+  iKO_0h_low_Rep1: 0_data/reads/S499/S499_03_1_iKO_0_low_S3
+  iKO_0h_high_Rep1: 0_data/reads/S499/S499_04_1_iKO_0_high_S4
+  noKO_0h_low_Rep2: 0_data/reads/S499/S499_05_2_noKO_0_low_S5
+  noKO_0h_high_Rep2: 0_data/reads/S499/S499_06_2_noKO_0_high_S6
+  iKO_0h_low_Rep2: 0_data/reads/S499/S499_07_2_iKO_0_low_S7
+  iKO_0h_high_Rep2: 0_data/reads/S499/S499_08_2_iKO_0_high_S8
+  noKO_0h_low_Rep3: 0_data/reads/S499/S499_09_3_noKO_0_low_S9
+  noKO_0h_high_Rep3: 0_data/reads/S499/S499_10_3_noKO_0_high_S10
+  iKO_0h_low_Rep3: 0_data/reads/S499/S499_11_3_iKO_0_low_S11
+  iKO_0h_high_Rep3: 0_data/reads/S499/S499_12_3_iKO_0_high_S12
+  noKO_24h_low_Rep1: 0_data/reads/S499/S499_13_1_noKO_24_low_S13
+  noKO_24h_high_Rep1: 0_data/reads/S499/S499_14_1_noKO_24_high_S14
+  iKO_24h_low_Rep1: 0_data/reads/S499/S499_15_1_iKO_24_low_S15
+  iKO_24h_high_Rep1: 0_data/reads/S499/S499_16_1_iKO_24_high_S16
+  noKO_24h_low_Rep2: 0_data/reads/S499/S499_17_2_noKO_24_low_S17
+  noKO_24h_high_Rep2: 0_data/reads/S499/S499_18_2_noKO_24_high_S18
+  iKO_24h_low_Rep2: 0_data/reads/S499/S499_19_2_iKO_24_low_S19
+  iKO_24h_high_Rep2: 0_data/reads/S499/S499_20_2_iKO_24_high_S20
+reference-genome: 0_data/reference/plasmoDB52/PlasmoDB-52_Pfalciparum3D7_Genome.fasta
+reference-annotation: 0_data/reference/plasmoDB52/PlasmoDB-52_Pfalciparum3D7.gff
+annotation_NucDyn: 0_data/reference/pf_nucDyn.gff
+chromSizes: 0_data/reference/plasmoDB52/sizes.genome
+chromSizes-snf2lrecodon: 0_data/reference/sizes.transgenic.genome
+danpos-executable: /Users/simon/GitProjects/DANPOS3/danpos.py
+rndSeed: 0
