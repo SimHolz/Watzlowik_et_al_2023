@@ -10,7 +10,17 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-#### Libraries
+# Plots
+
+This is a file containing many code chunks which were used to create plots in the Watzlowik et al paper.
+
+**WARNING**
+The file is **non comprehensive** and **code execution was not tested**. 
+Code was just copy pasted into this file to give a general idea how data was handled and plots were created. 
+
+# 1. Preperations
+
+## Load Libraries
 
 ```{r}
 library(tidyverse)
@@ -19,13 +29,11 @@ library(DESeq2)
 library(DEGreport)
 ```
 
-## Prepareation
-
-### Load DESeq Objects
+## Load DESeq Objects
 ```{r}
-dds1_Path <- "/Volumes/Promise Pegasus/Storage/Projects/for_Maresa/Plasmodium_RNA-Seq_V2/2_pipeline/03_differential-expression-analysis/data/dds_fr.rda"
-dds2_Path <- "/Volumes/Promise Pegasus/Storage/Projects/for_Maresa/Plasmodium_RNA-Seq/2_pipeline/03_differential-expression-analysis/data/dds_fr.rda"
-dds_drug_Path <- "/Users/simon/Projects/for_Maresa/Plasmodium_RNA-Seq_drug/2_pipeline/03_differential-expression-analysis/data/dds_fr.rda"
+dds1_Path <- "../2_pipeline/03_differential-expression-analysis/data/dds_induction0_fr.rda"
+dds2_Path <- "../2_pipeline/03_differential-expression-analysis/data/dds_induction24_fr.rda"
+dds_drug_Path <- "../2_pipeline/03_differential-expression-analysis/data/dds_drug_fr.rda"
 
 load(dds1_Path)
 dds1 <- dds
@@ -35,75 +43,92 @@ load(dds_drug_Path)
 dds3 <- dds
 
 
-dds <- cbind(dds3,dds2,dds1)
+dds <- cbind(dds3, dds2, dds1)
 
 # Annotate different Experiments
-colData(dds)$experiment <-  as.factor(c(rep("drug",18),rep("0h", 78), rep("24h",18)))
+colData(dds)$experiment <- as.factor(c(rep("drug", 18), rep("0h", 75), rep("24h", 18)))
 
-saveRDS(dds, file = "/Users/simon/Projects/for_Maresa/Plasmodium_RNA-Seq_drug/3_analysis/2023-02-09_plots/dds.RDS")
+saveRDS(dds, file = "../3_analysis/2023-02-09_plots/dds.RDS")
 ```
 
-## PCA of Combined RNA-Seq analysis
+# PCA of Combined RNA-Seq analysis
 
-#### Normalize Readcounts
+## Normalize Readcounts
 ```{r}
 dds <- estimateSizeFactors(dds)
 rld <- rlogTransformation(dds)
 ```
 
 
-#### Calculate mean values for each sample
+## Calculate mean values for each sample
 ```{r}
+# get mean of all three replicates
 rld_tib <- assay(rld) %>%
   as_tibble(rownames = "gene") %>%
   pivot_longer(!gene, names_to = "Sample") %>%
-  separate(Sample, into = c("timepoint","Condition","Replicate")) %>%
+  separate(Sample, into = c("timepoint", "Condition", "Replicate")) %>%
   group_by(gene, timepoint, Condition) %>%
   summarise(value = mean(value))
-rld_tib <- rld_tib %>% unite("sample", timepoint:Condition) %>%
+
+rld_tib <- rld_tib %>%
+  unite("sample", timepoint:Condition) %>%
   pivot_wider(id_cols = gene, names_from = sample, values_from = value)
 
-rld.mat <- as.matrix(rld_tib[,2:39])
-rownames(rld.mat) <- rld_tib$gene
+rld_mat <- as.matrix(rld_tib[, 2:39])
+rownames(rld_mat) <- rld_tib$gene
 ```
 
-#### Calculate Principle Components
+## Calculate Principle Components
 ```{r}
-PCA <- prcomp(t(rld.mat), scale = F)
-percentVar <- round(100*PCA$sdev^2/sum(PCA$sdev^2),1)
+# Calculate PCA
+PCA <- prcomp(t(rld_mat), scale = FALSE)
 
-dataGG <- data.frame(PC1 = PCA$x[,1], PC2 = PCA$x[,2],
-                     PC3 = PCA$x[,3], PC4 = PCA$x[,4],
-                     sample = colnames(rld_tib)[2:39]) %>%
-  separate(sample, into = c("timepoint","Condition"), remove = F) %>%
+# Get Explained Variance
+percentVar <- round(100 * PCA$sdev^2 / sum(PCA$sdev^2), 1)
+
+# Create dataframe for plotting
+dataGG <- data.frame(
+  PC1 = PCA$x[, 1], PC2 = PCA$x[, 2],
+  PC3 = PCA$x[, 3], PC4 = PCA$x[, 4],
+  sample = colnames(rld_tib)[2:39]
+) %>%
+  separate(sample, into = c("timepoint", "Condition"), remove = FALSE) %>%
   mutate(timepoint = as.numeric(as.character(timepoint)))
 ```
 
-#### Plot PCA of 1st RNA-Seq Experiment
+## Plot PCA of 0h induced RNA-Seq Experiment
 ```{r}
 # Set the same scales for a all PCAs
-xmin = (-90)
-xmax = 75
+xmin <- (-90)
+xmax <- 75
 
-ymin = (-60)
-ymax = 53
+ymin <- (-60)
+ymax <- 53
 
 plt_KO1 <- dataGG %>%
   # Filter for the right experiment and exclude 70h
-  filter(!(timepoint %in% c(69,70,74,84)),
-         (Condition %in% c("pos","neg"))) %>% 
+  filter(
+    !(timepoint %in% c(69, 74, 84)),
+    (Condition %in% c("pos", "neg"))
+  ) %>%
   # Plot
   ggplot(aes(x = PC1, y = PC2)) +
-  geom_path(aes(group=timepoint), color = "black", alpha = 0.5) +
-  geom_point(aes(color = (timepoint),
-                 shape = Condition),
-             alpha = 1,
-             size = 6) +
+  geom_path(aes(group = timepoint), color = "black", alpha = 0.5) +
+  geom_point(
+    aes(
+      color = (timepoint),
+      shape = Condition
+    ),
+    alpha = 1,
+    size = 6
+  ) +
   xlab(paste0("PC1: ", percentVar[1], "% variance")) +
   ylab(paste0("PC2: ", percentVar[2], "% variance")) +
   coord_fixed() +
-  lims(x = c(xmin,xmax),
-       y = c(ymin,ymax)) +
+  lims(
+    x = c(xmin, xmax),
+    y = c(ymin, ymax)
+  ) +
   theme_bw() +
   labs_pubr() +
   scale_colour_gradient(low = "grey", high = "#CD0000") +
@@ -112,32 +137,45 @@ plt_KO1 <- dataGG %>%
   theme(legend.position = "bottom")
 plt_KO1
 
-ggsave("/Users/simon/Projects/for_Maresa/Plasmodium_RNA-Seq_drug/3_analysis/2023-02-09_plots/PCA_1stKO.pdf", plot = plt_KO1)
-
+ggsave("../3_analysis/2023-02-09_plots/PCA_1stKO.pdf", plot = plt_KO1)
 ```
 
 
-#### Plot PCA of 2nd RNA-Seq Experiment
+## Plot PCA of 24h induced RNA-Seq Experiment
 
 ```{r}
-
-pal <- c(rep("grey", times = 10), colorRampPalette(c("grey","#CD0000"))(70)[c(45,50,60)])
+pal <- c(
+  rep("grey", times = 10),
+  colorRampPalette(c("grey", "#CD0000"))(70)[c(45, 50, 60)]
+)
 
 plt_KO2 <- dataGG %>%
-  filter(!(timepoint %in% c(50,60,70)),
-         !(Condition == "pos" & timepoint %in% c(0,5,10,15,20,25,30,35,40,45)),
-         (Condition %in% c("pos","neg"))) %>%
+  filter(
+    !(timepoint %in% c(50, 60)),
+    !(Condition == "pos" & timepoint %in% c(
+      0, 5, 10, 15,
+      20, 25, 30, 35,
+      40, 45
+    )),
+    (Condition %in% c("pos", "neg"))
+  ) %>%
   ggplot(aes(x = PC1, y = PC2)) +
-  geom_path(aes(group=timepoint), color = "black", alpha = 0.5) +
-  geom_point(aes(color = as.factor(timepoint),
-                 shape = Condition),
-             alpha = 1,
-             size = 6) +
+  geom_path(aes(group = timepoint), color = "black", alpha = 0.5) +
+  geom_point(
+    aes(
+      color = as.factor(timepoint),
+      shape = Condition
+    ),
+    alpha = 1,
+    size = 6
+  ) +
   xlab(paste0("PC1: ", percentVar[1], "% variance")) +
   ylab(paste0("PC2: ", percentVar[2], "% variance")) +
   coord_fixed() +
-  lims(x = c(xmin,xmax),
-       y = c(ymin,ymax)) +
+  lims(
+    x = c(xmin, xmax),
+    y = c(ymin, ymax)
+  ) +
   theme_bw() +
   labs_pubr() +
   scale_colour_manual(values = pal) +
@@ -147,36 +185,51 @@ plt_KO2 <- dataGG %>%
 
 plt_KO2
 
-ggsave("/Users/simon/Projects/for_Maresa/Plasmodium_RNA-Seq_drug/3_analysis/2023-02-09_plots/PCA_2ndKO.pdf", plot = plt_KO2)
-
+ggsave("../3_analysis/2023-02-09_plots/PCA_2ndKO.pdf",
+  plot = plt_KO2
+)
 ```
 
 
-#### Plot PCA of drug RNA-Seq Experiment
+## Plot PCA of drug RNA-Seq Experiment
 ```{r}
 # Prepare color palette
-pal <- colorRampPalette(c("grey","darkblue"))(4)
+pal <- colorRampPalette(c("grey", "darkblue"))(4)
 pal <- c(pal[2], pal[3], pal[4])
 
 # Filter Data
 plt_dat <- dataGG %>%
-  filter(!(timepoint %in% c(50,60,70, 69, 74, 84)),
-         !(Condition == "pos"))
+  filter(
+    !(timepoint %in% c(50, 60, 69, 74, 84)),
+    !(Condition == "pos")
+  )
 
-plt_drug <-  plt_dat %>%
+plt_drug <- plt_dat %>%
   ggplot(aes(x = PC1, y = PC2)) +
-  geom_path(data = plt_dat %>% filter(Condition != "neg"), aes(group=timepoint), color = "black", alpha = 0.5) +
-  geom_point(data = plt_dat %>% filter(Condition == "neg"), color = "grey", shape = 16, size = 6) +
-  geom_point(data = plt_dat %>% filter(Condition != "neg"),
-             aes(color = as.factor(timepoint),
-                 shape = Condition),
-             alpha = 1,
-             size = 6) +
+  geom_path(
+    data = plt_dat %>% filter(Condition != "neg"),
+    aes(group = timepoint), color = "black", alpha = 0.5
+  ) +
+  geom_point(
+    data = plt_dat %>% filter(Condition == "neg"),
+    color = "grey", shape = 16, size = 6
+  ) +
+  geom_point(
+    data = plt_dat %>% filter(Condition != "neg"),
+    aes(
+      color = as.factor(timepoint),
+      shape = Condition
+    ),
+    alpha = 1,
+    size = 6
+  ) +
   xlab(paste0("PC1: ", percentVar[1], "% variance")) +
   ylab(paste0("PC2: ", percentVar[2], "% variance")) +
   coord_fixed() +
-  lims(x = c(xmin,xmax),
-       y = c(ymin,ymax)) +
+  lims(
+    x = c(xmin, xmax),
+    y = c(ymin, ymax)
+  ) +
   theme_bw() +
   labs_pubr() +
   guides(color = "none") +
@@ -186,31 +239,33 @@ plt_drug <-  plt_dat %>%
 
 plt_drug
 
-ggsave("/Users/simon/Projects/for_Maresa/Plasmodium_RNA-Seq_drug/3_analysis/2023-02-09_plots/PCA_drug.pdf", plot = plt_drug)
-
+ggsave("../3_analysis/2023-02-09_plots/PCA_drug.pdf",
+  plot = plt_drug
+)
 ```
 
-## Plot Clustered Gene Expression over time
+# Plot Clustered Gene Expression over time
 
-#### Subset and Cleanup Data
+## Subset and Cleanup Data
 ```{r}
 # Subset to 1st and 2nd RNA Seq
-dds_clust <- subset(dds, select = colData(dds)$experiment %in% c("0h","24h"))
+dds_clust <- subset(dds, select = colData(dds)$experiment %in% c("0h", "24h"))
 
 # Bring Timepoints in order
-colData(dds_clust)$timepoint <- fct_relevel(colData(dds_clust)$timepoint,
-                                         "0","5","10","15","20","25","30","35","40","45","50","60","69","70","74","84")
-
-# Exclude 70h
-dds_clust <- subset(dds_clust,
-                 select = colData(dds_clust)$timepoint %in% c("0","5","10","15","20","25","30","35","40","45","50","60","69","74","84"))
+colData(dds_clust)$timepoint <- fct_relevel(
+  colData(dds_clust)$timepoint,
+  "0", "5", "10", "15", "20", "25",
+  "30", "35", "40", "45", "50", "60",
+  "69", "74", "84"
+)
 
 # Cleanup Factors
 colData(dds_clust)$timepoint <- droplevels(colData(dds_clust)$timepoint)
 colData(dds_clust)$condition <- droplevels(colData(dds_clust)$condition)
 ```
 
-#### Perform DE-Analysis
+## Perform DE-Analysis
+
 ```{r}
 # Use appropriate design
 design(dds_clust) <- ~ condition + timepoint + condition:timepoint
@@ -220,11 +275,13 @@ dds_clust <- DESeq(dds_clust, test = "LRT", reduced = ~ condition + timepoint)
 res_clust <- results(dds_clust)
 ```
 
-#### Prepare and cluster with DEGpatterns
-
+## Prepare and cluster with DEGpatterns
 ```{r}
 # Get subset of significant genes
-sig_gene_list <- res_clust %>% as_tibble(rownames = "gene") %>% filter(padj < 0.05 ) %>% pull(gene)
+sig_gene_list <- res_clust %>%
+  as_tibble(rownames = "gene") %>%
+  filter(padj < 0.05) %>%
+  pull(gene)
 
 # Normalize Counts
 rld <- rlogTransformation(dds_clust)
@@ -235,102 +292,159 @@ cluster_rlog <- rld_mat[sig_gene_list, ]
 
 # Cluster
 clusters <- degPatterns(cluster_rlog,
-                        metadata = colData(dds_clust),
-                        time="timepoint",
-                        col="condition")
+  metadata = colData(dds_clust),
+  time = "timepoint",
+  col = "condition"
+)
 ```
 
-#### Prepare for Plotting
+## Prepare for Plotting
 ```{r}
 # Append Ctrl data to 2nd Experiment and select cluster values with 4 clusters
 plt_dat <- clusters$normalized %>%
-  filter(condition == "neg",
-         experiment == "0h",
-         timepoint %in% c(25,30,35,40,45,50,60)) %>%
+  filter(
+    condition == "neg",
+    experiment == "0h",
+    timepoint %in% c(25, 30, 35, 40, 45, 50, 60)
+  ) %>%
   mutate(experiment = "24h") %>%
   bind_rows(clusters$normalized) %>%
   as_tibble() %>%
+  # cluster cutoff was chosen to reflect a cutoff of 4 clusters
   mutate(cluster = cutoff2.316)
 
 # Numbers of Genes in Cluster
-plt_dat %>% group_by(genes, cluster) %>% summarise() %>% pull(cluster) %>% table()
-
+plt_dat %>%
+  group_by(genes, cluster) %>%
+  summarise() %>%
+  pull(cluster) %>%
+  table()
 ```
 
-#### Plot Lines only
+## Plot Lines only
 ```{r}
 plt_clusters <- plt_dat %>%
   ggplot(aes(x = timepoint, y = value, color = condition)) +
-#  geom_line(alpha = 0.01, aes (group = interaction(genes, condition))) +
-  geom_smooth(data = plt_dat %>% filter(experiment == "0h" | condition == "neg"),
-                aes(group = interaction(condition, cluster)),
-              method = "loess", span = 0.5, size = 1.5) +
-  geom_smooth(data = plt_dat %>% filter(experiment == "24h" & condition == "pos"),
-              aes(group = interaction(condition, cluster)),
-              method = "loess", span = 2, size = 1.5) +
-  scale_color_manual(values = c("black","red")) +
-  scale_fill_manual(values = c("black","red")) +
+  geom_smooth(
+    data = plt_dat %>%
+      filter(experiment == "0h" | condition == "neg"),
+    aes(group = interaction(condition, cluster)),
+    method = "loess",
+    span = 0.5,
+    size = 1.5
+  ) +
+  geom_smooth(
+    data = plt_dat %>%
+      filter(experiment == "24h" & condition == "pos"),
+    aes(group = interaction(condition, cluster)),
+    method = "loess",
+    span = 2,
+    size = 1.5
+  ) +
+  scale_color_manual(values = c("black", "red")) +
+  scale_fill_manual(values = c("black", "red")) +
   facet_grid(~experiment, scales = "free") +
   theme_pubr() +
   labs_pubr()
 
 plt_clusters
 
-ggsave("/Users/simon/Projects/for_Maresa/Plasmodium_RNA-Seq_drug/3_analysis/2023-02-09_plots/TxCluster_merged.pdf", plot = plt_clusters)
+ggsave("../3_analysis/2023-02-09_plots/TxCluster_merged.pdf", plot = plt_clusters)
 ```
 
 
-#### Plot Violins and facet
-
+## Plot Violins and facet
 ```{r}
 # Prep Violins as Densities
 plt_dat_violins <- plt_dat %>%
-  mutate(condition = as.factor(condition),
-         experiment = as.factor(experiment),
-         cluster = as.factor(cluster)) %>%
+  mutate(
+    condition = as.factor(condition),
+    experiment = as.factor(experiment),
+    cluster = as.factor(cluster)
+  ) %>%
   group_by(cluster, experiment, timepoint, condition) %>%
   do({
     dens <- density(.$value)
-    tibble(x = c(head(dens$x, 1), dens$x, tail(dens$x, 1)), #Add 0s at end to close lines
-           y = c(0, dens$y, 0))
+    tibble(
+      x = c(head(dens$x, 1), dens$x, tail(dens$x, 1)), # Add 0s at end to close lines
+      y = c(0, dens$y, 0)
+    )
   }) %>%
   ungroup() %>%
-  mutate(ymin = as.numeric(timepoint:condition) - .4*y/max(y), # Add offset for factor levels
-         ymax = as.numeric(timepoint:condition) + .4*y/max(y))
+  mutate(
+    ymin = as.numeric(timepoint:condition) - .4 * y / max(y), # Add offset for factor levels
+    ymax = as.numeric(timepoint:condition) + .4 * y / max(y)
+  )
 
 # Convert to Factors
 plt_fct <- plt_dat %>%
-  mutate(condition = as.factor(condition),
-         experiment = as.factor(experiment),
-         cluster = as.factor(cluster))
+  mutate(
+    condition = as.factor(condition),
+    experiment = as.factor(experiment),
+    cluster = as.factor(cluster)
+  )
 
 # plot
 plt_cluster_expression <- ggplot(plt_dat_violins) +
-  geom_ribbon(aes(x = x,
-                  ymin = ymin,
-                  ymax = ymax,
-                  group = timepoint:condition,
-                  fill = condition),
-              alpha = 0.5) +
-  geom_smooth(data = plt_fct %>% filter(experiment == "0h" | condition == "neg"),
-              aes(x = value, y = as.numeric(timepoint)*2-0.5, color = condition,
-                  group = interaction(condition, cluster)), method = "loess" ,
-              span = 0.5, orientation = "y", size = 1.5 ) +
-  geom_smooth(data = plt_fct %>% filter(experiment == "24h" & condition == "pos"),
-              aes(x = value, y = as.numeric(timepoint)*2-0.5, color = condition,
-                  group = interaction(condition, cluster)), method = "loess" ,
-              span = 2, orientation = "y", size = 1.5) +
+  geom_ribbon(
+    aes(
+      x = x,
+      ymin = ymin,
+      ymax = ymax,
+      group = timepoint:condition,
+      fill = condition
+    ),
+    alpha = 0.5
+  ) +
+  geom_smooth(
+    data = plt_fct %>%
+      filter(experiment == "0h" | condition == "neg"),
+    aes(
+      x = value,
+      y = as.numeric(timepoint) * 2 - 0.5,
+      color = condition,
+      group = interaction(condition, cluster)
+    ),
+    method = "loess",
+    span = 0.5,
+    orientation = "y",
+    size = 1.5
+  ) +
+  geom_smooth(
+    data = plt_fct %>%
+      filter(experiment == "24h" & condition == "pos"),
+    aes(
+      x = value,
+      y = as.numeric(timepoint) * 2 - 0.5,
+      color = condition,
+      group = interaction(condition, cluster)
+    ),
+    method = "loess",
+    span = 2,
+    orientation = "y",
+    size = 1.5
+  ) +
   facet_grid(cluster ~ experiment, scales = "free") +
-  scale_y_continuous(breaks = c(1.5,3.5,5.5,7.5,9.5,11.5,13.5,15.5,17.5,19.5,21.5,23.5,25.5,27.5,29.5),
-                      labels = levels(d2$timepoint)) +
-  labs(x = 'z-score', y = 'timepoint') +
+  scale_y_continuous(
+    breaks = c(
+      1.5, 3.5, 5.5, 7.5, 9.5, 11.5,
+      13.5, 15.5, 17.5, 19.5, 21.5,
+      23.5, 25.5, 27.5, 29.5
+    ),
+    labels = levels(d2$timepoint)
+  ) +
+  labs(x = "z-score", y = "timepoint") +
   coord_flip() +
-  scale_fill_manual(values = c("black","red")) +
-  scale_color_manual(values = c("black","red")) +
+  scale_fill_manual(values = c("black", "red")) +
+  scale_color_manual(values = c("black", "red")) +
   theme_pubr() +
   labs_pubr()
 
 plt_cluster_expression
 
-ggsave("/Users/simon/Projects/for_Maresa/Plasmodium_RNA-Seq_drug/3_analysis/2023-02-09_plots/TxCluster_violin.pdf", plot = plt_cluster_expression, width = 7, height = 7)
+ggsave("../3_analysis/2023-02-09_plots/TxCluster_violin.pdf",
+  plot = plt_cluster_expression,
+  width = 7,
+  height = 7
+)
 ```

@@ -9,6 +9,9 @@ Workflow:
         - FastQC of raw reads
         - trimming of reads with Trimmomatic
         - FastQC of trimmed reads
+    Mapping:
+        - Alignment with STAR
+        - Different QC
 
 """
 

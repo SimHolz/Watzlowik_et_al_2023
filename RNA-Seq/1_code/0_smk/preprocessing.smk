@@ -17,7 +17,7 @@ Workflow:
 
 rule raw_fastqc:
     input:
-        lambda wildcards: f"{config['samples'][wildcards.sample]}_{wildcards.num}_001.fastq.gz"
+        lambda wildcards: f"{config['samples'][wildcards.sample]}_{wildcards.num}.fastq.gz"
     output:
         html="2_pipeline/00_qc/preprocessing/raw_fastqc/{sample}_{num}_fastqc.html",
         zip="2_pipeline/00_qc/preprocessing/raw_fastqc/{sample}_{num}_fastqc.zip"
@@ -30,8 +30,8 @@ rule raw_fastqc:
 
 rule trim_reads:
     input:
-        r1= lambda wildcards: f"{config['samples'][wildcards.sample]}_R1_001.fastq.gz",
-        r2= lambda wildcards: f"{config['samples'][wildcards.sample]}_R2_001.fastq.gz"
+        r1= lambda wildcards: f"{config['samples'][wildcards.sample]}_1.fastq.gz",
+        r2= lambda wildcards: f"{config['samples'][wildcards.sample]}_2.fastq.gz"
     output:
         r1="2_pipeline/01_trimmed_reads/{sample}_1.fastq.gz",
         r2="2_pipeline/01_trimmed_reads/{sample}_2.fastq.gz",
@@ -45,7 +45,7 @@ rule trim_reads:
         adapt_trim="ILLUMINACLIP:" + config["adapters"] + ":2:30:10",
         qual_trim="MAXINFO:30:0.2",
         len_trim="MINLEN:35"
-    threads: 12
+    threads: config["parallel_threads"]
     benchmark:
         "2_pipeline/00_benchmarks/trimmomatic/{sample}.trimmomatic.benchmark.txt"
     shell:
@@ -74,8 +74,8 @@ rule trimmed_fastqc:
 ####################
 rule preprocessing_multiqc:
     input:
-        expand("2_pipeline/00_qc/preprocessing/raw_fastqc/{sample}_{num}_fastqc.html", sample=config["samples"], num = ["R1", "R2"]),
-        expand("2_pipeline/00_qc/preprocessing/trimmed_fastqc/{sample}_{n}_fastqc.html", sample=config["samples"], n = ["1","2"]),
+        expand("2_pipeline/00_qc/preprocessing/raw_fastqc/{sample}_{num}_fastqc.html", sample=config["samples"], num = ["1", "2"]),
+        expand("2_pipeline/00_qc/preprocessing/trimmed_fastqc/{sample}_{n}_fastqc.html", sample=config["samples"], n = ["1", "2"]),
         expand("2_pipeline/00_logs/trimmomatic/{sample}.log", sample=config["samples"])
     output:
         "2_pipeline/00_qc/preprocessing/multiqc/preprocessing_multiqc_report.html"

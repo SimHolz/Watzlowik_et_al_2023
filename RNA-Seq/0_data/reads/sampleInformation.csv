@@ -1,0 +1,7 @@
+﻿ID,SampleID,SampleName,Replicate,timepoint,condition
+1,35_ctrl_Rep1,35_ctrl,1,35,ctrl
+2,35_drug_Rep1,35_treat,1,35,drug
+3,35_ctrl_Rep2,35_ctrl,2,35,ctrl
+4,35_drug_Rep2,35_treat,2,35,drug
+5,35_ctrl_Rep3,35_ctrl,3,35,ctrl
+6,35_drug_Rep3,35_treat,3,35,drug

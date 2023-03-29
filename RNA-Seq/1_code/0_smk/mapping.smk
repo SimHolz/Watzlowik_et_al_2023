@@ -6,6 +6,8 @@ Date: 2021-06-10
 Workflow:
     - Create STAR Index
     - map reads with STAR
+    - create bigwig tracks
+    - move and index bams
     - QC
 """
 
@@ -37,7 +39,7 @@ rule index_STAR:
         basename="2_pipeline/00_index/STAR/",
         extra="--sjdbOverhang 56 "
             "--genomeSAindexNbases 11 "
-    threads: 24
+    threads: config["parallel_threads"]
     benchmark:
         "2_pipeline/00_benchmarks/star-index/reference.star-index.benchmark.txt"
     conda:
@@ -70,19 +72,17 @@ rule alignment_STAR:
         extra="--readFilesCommand gunzip -c "
             "--outSAMtype BAM SortedByCoordinate "
             "--outFilterType BySJout "
-            "--outFilterMultimapNmax 20 "   #Evtl to 1 for only top scoring alignment
-#            "--alignSJDBoverhangMin 8 "
+            "--outFilterMultimapNmax 20 "
             "--alignSJDBoverhangMin 1 "
-            "--outFilterMismatchNmax 999 "  #?
-            "--outFilterMismatchNoverReadLmax 0.04 "    #?
-            "--alignIntronMin 5 "           #ENCODE: 20
-            "--alignIntronMax 1000 "        #ENCODE 1000000
-            "--alignMatesGapMax 1000000 "   #?
+            "--outFilterMismatchNmax 999 "
+            "--outFilterMismatchNoverReadLmax 0.04 "
+            "--alignIntronMin 5 "
+            "--alignIntronMax 1000 "
+            "--alignMatesGapMax 1000000 "
             "--outMultimapperOrder Random "
-            "--outWigType wiggle "
-            "--limitBAMsortRAM 2273307146" ,
+            "--outWigType wiggle ",
         seed=config["rndSeed"]
-    threads: 12
+    threads: config["parallel_threads"]
     benchmark:
         "2_pipeline/00_benchmarks/alignment/{sample}.star.benchmark.txt"
     conda:

@@ -1,0 +1,352 @@
+---
+title: "Plots for Pf MNase-Seq Analysis"
+author: "Maria Watzlowik"
+date: "4/5/2023"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Plots
+
+This is a file containing many code chunks which were used to create plots in the Watzlowik et al paper.
+
+**WARNING**
+The file is **non comprehensive** and **code execution was not tested**. 
+Code was just copy pasted into this file to give a general idea how data was handled and plots were created. 
+
+# Preperations
+
+## Load Libraries
+
+
+```{r}
+library(plyranges)
+library(ggpubr)
+library(tidyverse)
+library(GenomicRanges)
+library(rtracklayer)
+library(ggridges)
+```
+
+## Functions
+
+```{r}
+# Function based on and adapted from https://github.com/rchereji/Workshop_Argentina_2018/blob/master/Part_3_R_commands.ipynb
+
+Align_GRanges <- function(Profile, ReferenceGRanges, method = "point", up_size = 1000, dn_size = 1000, bins = 2000) {
+  if (!(method %in% c("point", "region"))) {
+    stop("Method not supported. Use either 'point' or 'region' as method.")
+  }
+
+  # Obtain Views for all GRanges that we wish to align
+  myViews <- Views(Profile, ReferenceGRanges)
+
+  # Convert the RleViewsList (myViews) into a matrix
+
+  if (method == "point") {
+    AlignedProfilesList <- lapply(myViews, function(gr) t(viewApply(gr, as.vector)))
+  } else if (method == "region") {
+    AlignedProfilesList <- lapply(myViews, function(gr) {
+      t(viewApply(gr, getRegionProfile, up_size = up_size, dn_size = dn_size, bins = bins))
+    })
+  }
+
+  AlignedProfilesList <- AlignedProfilesList[unlist(lapply(AlignedProfilesList, function(x) {
+    length(x)
+  })) != 0]
+  AlignedProfiles <- do.call("rbind", AlignedProfilesList)
+
+  ## Flip the rows corresponding to GRanges from the Crick strand
+  CrickInd <- which(as.character(strand(ReferenceGRanges)) == "-")
+  AlignedProfiles[CrickInd, ] <- AlignedProfiles[CrickInd, ncol(AlignedProfiles):1]
+
+  return(AlignedProfiles)
+}
+```
+
+## -check- Load MNaseSeq bigwig files
+
+```{r}
+# set working directory
+setwd("PATH/TO/PROJECT_DIR")
+
+inDir_bw <- "2_pipeline/05_differential_nucleosome_positioning/results/pooled/"
+inPaths <- list.files(inDir_bw, pattern = "*.bw", full.names = TRUE)
+inNames <- list.files(inDir_bw, pattern = "*.bw", full.names = FALSE)
+fileNames <- inNames %>%
+  str_split(pattern = "\\.", simplify = T) %>%
+  .[, 1] %>%
+  str_split(pattern = "_", simplify = T) %>%
+  .[, 4:7] %>%
+  apply(1, paste, collapse = "_")
+```
+
+## -check- Load annotation / RNAseq / NucDyn / DANPOS files
+```{r}
+# Plasmodium reference annotation
+annotation <- read_gff("0_data/reference/plasmoDB52/PlasmoDB-52_Pfalciparum3D7.gff")
+
+# txstart results from NucleosomeDynamics
+txstart_noKO <- read_gff("2_pipeline/06_NucleosomeDynamics/txstart/noKO_24h.gff") %>%
+  dropSeqlevels(c("Pf3D7_MIT_v3", "Pf3D7_API_v3"), pruning.mode = "coarse")
+txstart_iKO <- read_gff("2_pipeline/06_NucleosomeDynamics/txstart/iKO_24h.gff") %>%
+  dropSeqlevels(c("Pf3D7_MIT_v3", "Pf3D7_API_v3"), pruning.mode = "coarse")
+
+# RNA-Seq counts
+# can be downloaded via GEO
+RNA_i24 <- read_delim("~/Desktop/GSE228948_counts_induction24.tsv",
+  delim = "\t",
+  escape_double = FALSE,
+  trim_ws = TRUE
+)
+
+# nucleosome positions - DANPOS results adjusted
+# can be downloaded via GEO
+nucs_i24 <- read_delim("~/Desktop/GSE228947_iKO_24h-noKO_24h.positions.FDR_corrected.tsv",
+  delim = "\t",
+  escape_double = FALSE,
+  trim_ws = TRUE
+)
+
+# Differential Expression Results Table
+all45 <- read_delim("KO24HPI_condition_iKO_vs_noKO_timepoint_45_results.tsv",
+  delim = "\t",
+  escape_double = FALSE,
+  trim_ws = TRUE
+)
+```
+
+
+## Load annnotation TSS/TTS/AUG/stop/plus1
+```{r}
+TSS <- annotation %>%
+  filter(type == "mRNA") %>%
+  anchor_5p() %>%
+  mutate(width = 1)
+regions <- TSS %>%
+  anchor_center() %>%
+  mutate(width = 2001) %>%
+  dropSeqlevels(c("Pf3D7_MIT_v3", "Pf3D7_API_v3"), pruning.mode = "coarse") %>%
+  sortSeqlevels() %>%
+  sort()
+
+TTS <- annotation %>%
+  filter(type == "mRNA") %>%
+  anchor_3p() %>%
+  mutate(width = 1)
+regions <- TTS %>%
+  anchor_center() %>%
+  mutate(width = 2001) %>%
+  dropSeqlevels(c("Pf3D7_MIT_v3", "Pf3D7_API_v3"), pruning.mode = "coarse") %>%
+  sortSeqlevels() %>%
+  sort()
+
+AUG <- annotation %>%
+  filter(type == "five_prime_UTR") %>%
+  anchor_3p() %>%
+  mutate(width = 1)
+regions <- AUG %>%
+  anchor_center() %>%
+  mutate(width = 2001) %>%
+  dropSeqlevels(c("Pf3D7_MIT_v3", "Pf3D7_API_v3"), pruning.mode = "coarse") %>%
+  sortSeqlevels() %>%
+  sort()
+
+stop <- annotation %>%
+  filter(type == "three_prime_UTR") %>%
+  anchor_5p() %>%
+  mutate(width = 1)
+regions <- stop %>%
+  anchor_center() %>%
+  mutate(width = 2001) %>%
+  dropSeqlevels(c("Pf3D7_MIT_v3", "Pf3D7_API_v3"), pruning.mode = "coarse") %>%
+  sortSeqlevels() %>%
+  sort()
+
+plus1 <- txstart_noKO %>%
+  anchor_3p() %>%
+  mutate(width = 1)
+regions <- plus1 %>%
+  anchor_center() %>%
+  mutate(width = 2001) %>%
+  dropSeqlevels(c("Pf3D7_MIT_v3", "Pf3D7_API_v3"), pruning.mode = "coarse") %>%
+  sortSeqlevels() %>%
+  filter(classification != "+1_missing") %>%
+  sort()
+```
+
+## Align all regions around TSS/TTS/AUG/stop/plus1
+```{r}
+# for different regions applied
+aligned_profiles <- inPaths %>%
+  setNames(fileNames) %>%
+  map_df(function(x) {
+    a <- read_bigwig(x)
+    b <- dropSeqlevels(a, c("Pf3D7_MIT_v3", "Pf3D7_API_v3", "Pf_M76611"), pruning.mode = "coarse")
+    c <- coverage(b, weight = b$score)
+    d <- Align_GRanges(c, ReferenceGRanges = regions %>% subsetByOverlaps(GRanges(seqinfo(b)), type = "within"))
+    e <- colMeans(d)
+  }, .id = "sample") %>%
+  mutate(bp = -1000:1000) %>%
+  pivot_longer(!bp, names_to = "timepoints")
+
+# plot
+aligned_profiles %>%
+  separate(timepoints, into = c("KO", "induction", "time")) %>%
+  ggplot(aes(x = bp)) +
+  geom_line(aes(y = value, color = KO), size = 0.8, alpha = 0.9) +
+  geom_vline(xintercept = 0, color = "black", linetype = "dashed") +
+  scale_color_manual(values = c("red3", "black")) +
+  facet_wrap(vars(time), scales = "fixed") +
+  theme_pubr() +
+  guides(colour = guide_legend(ncol = 8, nrow = 1, byrow = TRUE)) +
+  labs(
+    x = "distance to xxx [bp]",
+    y = "normalised coverage",
+    title = "Positioning of Mononucleosomes around xxx"
+  ) +
+  labs_pubr()
+```
+
+## Differentiation by expression quantiles 
+```{r}
+# calculate quantiles from expression data
+RNA_i24
+RNA_i24$mean69 <- rowMeans(RNA_i24[, c(2, 3, 4)])
+RNA_i24$quantile69 <- cut(RNA_i24$mean69,
+  breaks = quantile(RNA_i24$mean69),
+  include.lowest = TRUE, labels = 1:4
+)
+
+# subset regions
+regions <- plus1 %>%
+  anchor_center() %>%
+  mutate(width = 2001) %>%
+  dropSeqlevels(c("Pf3D7_MIT_v3", "Pf3D7_API_v3"), pruning.mode = "coarse") %>%
+  sortSeqlevels() %>%
+  filter(classification != "+1_missing") %>%
+  sort()
+regionsv1 <- regions[(elementMetadata(regions)[, "name"] %in% filter(RNA_i24, quantile69 == 1)$gene_id)]
+regionsv2 <- regions[(elementMetadata(regions)[, "name"] %in% filter(RNA_i24, quantile69 == 2)$gene_id)]
+regionsv3 <- regions[(elementMetadata(regions)[, "name"] %in% filter(RNA_i24, quantile69 == 3)$gene_id)]
+regionsv4 <- regions[(elementMetadata(regions)[, "name"] %in% filter(RNA_i24, quantile69 == 4)$gene_id)]
+```
+
+## NFR width distribution
+```{r}
+# txstart from NucDyn
+NFR_noKO <- as.data.frame(txstart_noKO)[, c(11, 15)] %>%
+  mutate(KO = "noKO")
+NFR_iKO <- as.data.frame(txstart_iKO)[, c(11, 15)] %>%
+  mutate(KO = "iKO")
+NFR <- left_join(rbind(NFR_noKO, NFR_iKO),
+  RNA_i24[, c(1, 21)],
+  by = c("id" = "gene_id")
+)
+NFR$distance <- as.numeric(NFR$distance)
+
+# plot
+NFR %>% ggplot(aes(color = KO)) +
+  geom_density(aes(x = distance)) +
+  facet_wrap(vars(quantile69),
+    nrow = 4,
+    strip.position = "right"
+  ) +
+  scale_color_manual(values = c("red3", "black")) +
+  scale_y_continuous(
+    breaks = c(0, 0.005),
+    labels = scales::percent
+  ) +
+  scale_x_continuous(limits = c(50, 550)) +
+  geom_vline(aes(xintercept = 200),
+    linetype = "dashed"
+  ) +
+  theme_pubr() +
+  theme(legend.position = "none") +
+  labs(
+    x = "NFR width",
+    y = "",
+    color = "",
+    title = "NFRwidth"
+  ) +
+  labs_pubr(base_size = 10)
+```
+
+## Correlation DE and MNase fuzziness 
+```{r}
+# nucleosome positions from DANPOS
+nucs_i24
+nucs_i24 <- makeGRangesFromDataFrame(nucs_i24, keep.extra.columns = TRUE)
+
+# define promotor regions and filter for >5 nucleosomes
+regions <- plus1 %>%
+  anchor_center() %>%
+  mutate(width = 2001) %>%
+  dropSeqlevels(c("Pf3D7_MIT_v3", "Pf3D7_API_v3"), pruning.mode = "coarse") %>%
+  sortSeqlevels() %>%
+  filter(classification != "+1_missing") %>%
+  sort()
+regions <- regions %>%
+  mutate(n_nucleosomes = count_overlaps(regions, nucs_i24, minoverlap = 75))
+regionsfilter <- regions %>%
+  dplyr::filter(n_nucleosomes > 5)
+
+# calculate mean fuzziness/gene
+promotornucleosomes <- subsetByOverlaps(nucs_i24,
+  regionsfilter,
+  minoverlap = 75
+)
+promotornucs <- as.data.frame(join_overlap_left_directed(promotornucleosomes,
+  regionsfilter,
+  minoverlap = 75
+))[]
+meanfuzz_noKO <- aggregate(promotornucs$control_fuzziness_score,
+  by = list(promotornucs$id),
+  FUN = mean
+)
+meanfuzz_iKO <- aggregate(promotornucs$treat_fuzziness_score,
+  by = list(promotornucs$id),
+  FUN = mean
+)
+meanfuzz <- left_join(meanfuzz_noKO,
+  meanfuzz_iKO,
+  by = c("Group.1" = "Group.1")
+) %>%
+  mutate(fuzzdiff = x.y - x.x)
+
+# add differential expression data
+all45
+DEfuzz <- na.omit(left_join(all45[, c(1, 3, 7)],
+  meanfuzz[, c(1, 4)],
+  by = c("X" = "Group.1")
+))
+DEfuzz$DE <- ifelse((DEfuzz$log2FoldChange > 0) & (DEfuzz$padj < 0.05),
+  "up",
+  ifelse((DEfuzz$log2FoldChange < 0) & (DEfuzz$padj < 0.05),
+    "down",
+    "no"
+  )
+)
+DEfuzz$DE <- as.factor(DEfuzz$DE)
+
+# plot
+DEfuzz %>% ggplot(aes(y = fuzzdiff, x = DE, fill = DE)) +
+  geom_violin(draw_quantiles = c(0.5)) +
+  scale_fill_manual(values = c("red", "grey", "green")) +
+  labs(x = "expression change", y = "fuzziness difference iKO-noKO") +
+  theme_pubr() +
+  border() +
+  theme(panel.grid = element_blank()) +
+  theme(legend.position = "none") +
+  stat_compare_means(
+    ref.group = "no",
+    label = "p.signif",
+    method = "t.test",
+    vjust = (0.5)
+  ) +
+  labs(x = "", y = "")
+```

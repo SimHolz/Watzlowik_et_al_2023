@@ -1,0 +1,245 @@
+---
+title: "DE Analysis"
+author: "Simon Holzinger"
+date: "2023-01-13"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r clear session, include=FALSE}
+rm(list = ls())
+```
+
+This script shows the code used for differential analysis of mapped RNA-Seq reads (from STAR) with DESeq2 and RSubread. 
+For simplification only the analysis of one of three RNA-Seq datasets is shown.
+Although not shown the other two datasets were analysed in the same way.
+
+# 1. Preperations
+
+## Load Libraries
+
+```{r load libraries, message=FALSE}
+library("tidyverse")
+library("tximport")
+library("GenomicFeatures")
+library("DESeq2")
+library("Rsubread")
+library("org.Pf.plasmo.db")
+library("topGO")
+```
+
+## Setting Paths
+
+Paths for the file containing sample information, annotation information and the count data have to be set. 
+Additionaly the output directory is created.
+
+```{r setting paths, message=FALSE}
+# Directory with sample information file
+sample_file_dir <- "../../0_data/reads"
+
+# Directory with STAR output (bam files)
+star_data_dir <- "../../2_pipeline/02_alignment"
+
+# Annotation File
+gtf_file <- "../../2_pipeline/00_annotation/annotation.gtf"
+
+# Output directory
+out_dir <- "../../2_pipeline/03_differential-expression-analysis"
+
+dir.create(paste0(out_dir, "/data/"),
+    showWarnings = FALSE,
+    recursive = TRUE
+)
+
+dir.create(paste0(out_dir, "/results/"),
+    showWarnings = FALSE,
+    recursive = TRUE
+)
+```
+
+## Load Sample Info
+
+The sample information is loaded and named.
+
+```{r load sample information}
+# Load sample information metadata for DESeq
+sample_info <- read.csv(file.path(sample_file_dir, "sampleInformation.csv"),
+    header = TRUE,
+    colClasses = "factor"
+)
+rownames(sample_info) <- sample_info$SampleID
+```
+
+# 2. Create Count Table
+
+To get gene-based counts from STAR mapping data, the reads are counted using featureCounts from RSubread. 
+Multimapping reads are counted as a fraction on all mapping locations if applicable.
+
+```{r load mapping data}
+# Get path of all bam files from STAR output
+star_files <- list.files(star_data_dir,
+    recursive = TRUE,
+    pattern = ".bam$",
+    full.names = TRUE
+)
+
+# Create counttable
+count_table <- featureCounts(star_files,
+    annot.ext = gtf_file,
+    isGTFAnnotationFile = TRUE,
+    strandSpecific = 2,
+    isPairedEnd = TRUE,
+    nthreads = 20,
+    countMultiMappingReads = TRUE,
+    fraction = TRUE
+)
+
+clean_names <- colnames(count_table$counts) %>%
+  str_split(pattern = "\\.", simplify = TRUE) %>%
+  .[,1]
+
+colnames(count_table$counts) <- clean_names
+
+```
+
+# 3. Create DESeqDataSet
+
+The DESeqDataset is created by using the count data and sample information.
+
+```{r}
+dds <- DESeqDataSetFromMatrix(
+    countData = round(count_table$counts),
+    colData = sample_info[order(sample_info$SampleID), ],
+    # design = ~ timepoint * condition,
+    design = ~ condition
+)
+
+save(dds, file = paste0(out_dir, "/data/dds_fr.rda"))
+```
+
+
+# 4. DE Analysis
+
+Differential expression analysis is done with DESeq2. Design and statistical test is chosen appropriately to the experiment and research question.
+For analysis of differences over the timecourse of the experiments a Likelihood Ratio Test was used.
+To test for changes in expression (iKO vs noKO / treat vs control) on specific timepoints a Wald Test was used. 
+
+```{r}
+# Test for condition:timepoint interaction
+design(dds) <- ~ condition + timepoint + condition:timepoint
+dds <- DESeq(dds, test = "LRT", reduced = ~ condition + timepoint)
+res <- results(dds)
+
+# Annotate Results
+annotate_results <- function(resultsData) {
+    GENENAME <- AnnotationDbi::select(org.Pf.plasmo.db, rownames(resultsData), columns = "GENENAME")$GENENAME
+    resOut <- cbind(resultsData, GENENAME)
+    return(resOut)
+}
+
+res <- annotate_results(res)
+
+write.table(res,
+    file = paste0(out_dir, "/results/DRUG_interaction_condition-timepoint_results.tsv"),
+    quote = FALSE,
+    sep = "\t"
+)
+
+# Select results from specific timepoint
+tp <- 45 # or 50, 60, etc.
+res_tp <- results(dds,
+    contrast = list(c(
+        "condition_treat_vs_ctrl", # or "condition_iKO_vs_noKO"
+        paste0("conditiontreat.timepoint", tp)
+    )), # or "conditioniKO.timepoint"
+    test = "Wald"
+)
+
+res_tp <- annotate_results(res_tp)
+
+write.table(res_tp,
+    file = paste0(out_dir, "/results/DRUG_condition_treat_vs_ctrl_timepoint_45_results.tsv"),
+    quote = FALSE,
+    sep = "\t"
+)
+
+```
+
+## GO-Enrichment Analysis
+
+Var genes are excluded because they are not truthfully represented in the data (only one VAR gene is active at a time in a particular parasite. In bulk data it looks like several are active/differentially regulated)
+
+```{r}
+# Exclude VAR-Genes for GO-Enrichment Test
+var_genes <- res %>%
+  as_tibble(rownames = "gene_id") %>%
+  filter(str_detect(GENENAME, pattern = "VAR")) %>%
+  arrange(padj) %>%
+  pull(gene_id)
+results <- res[!(rownames(res) %in% var_genes[-1]), ]
+
+```
+
+GO analysis is done with topGO. To get a full overview significance is tested with a Fisher test and a Kolmogorov-Smirnov test and different algorithms for redundancy reduction are used. More detailed info can be found in the topGO documentation. 
+
+```{r}
+# Get GO mapping to genes
+allGO2genes <- annFUN.org(
+  whichOnto = "BP", # one of "BP", "CC" or "MF"
+  feasibleGenes = NULL,
+  mapping = "org.Pf.plasmo.db",
+  ID = "SYMBOL"
+)
+
+# Get Genelist
+geneList <- results %>%
+  as_tibble(rownames = "gene_id") %>%
+  filter(!is.na(padj)) %>%
+  pull(padj) %>%
+  set_names(rownames(results[!is.na(results$padj), ]))
+
+# Define selection function
+selection <- function(allScore) {
+  return(allScore < 0.05)
+}
+
+# GO analysis
+GOdata <- new("topGOdata",
+              ontology = ontology,
+              description = "GO Enrichtment of differentially expressed genes",
+              allGenes = geneList,
+              geneSel = selection,
+              annot = annFUN.GO2genes,
+              nodeSize = 5,
+              GO2genes = allGO2genes
+)
+resultFisher <- runTest(GOdata, algorithm = "classic", statistic = "fisher")
+resultKS <- runTest(GOdata, algorithm = "classic", statistic = "ks")
+resultKS.weight01 <- runTest(GOdata, algorithm = "weight01", statistic = "ks")
+
+allRes <- GenTable(GOdata,
+                   classicFisher = resultFisher,
+                   classicKS = resultKS,
+                   defaultKS = resultKS.weight01,
+                   orderBy = "defaultKS",
+                   ranksOf = "classicFisher",
+                   topNodes = 100)
+
+# Write Output
+write.table(allRes,
+            file = paste0(out_dir, "/results/DRUG_interaction_condition-timepoint_GO-analysis.tsv"),
+            quote = FALSE,
+            sep = "\t", row.names = FALSE
+)
+```
+
+## Session Information
+
+The following versions of R and R packages were used to generate the report above:
+
+```{r sessionInfo, echo=FALSE}
+sessionInfo()
+```
