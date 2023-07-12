@@ -46,6 +46,8 @@ rule trim_reads:
         qual_trim="MAXINFO:30:0.2",
         len_trim="MINLEN:35"
     threads: config["parallel_threads"]
+    conda:
+        "../../5_envs/trimmomatic.yaml"
     benchmark:
         "2_pipeline/00_benchmarks/trimmomatic/{sample}.trimmomatic.benchmark.txt"
     shell:
