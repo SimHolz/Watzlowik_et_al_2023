@@ -2,7 +2,12 @@
 
 # Bash Script for nucleosome dynamics package based on docker
 
-project_dir=
+
+# ADD ABSOLUTE PATH TO PROJECT HERE:
+project_dir=<PATH TO PROJECT>
+
+
+
 genome_annotation=/project_dir/0_data/reference/pf_nucDyn.gff
 genome_sizes=/project_dir/0_data/reference/plasmoDB52/sizes.genome
 
@@ -25,6 +30,7 @@ for SAMPLE in iKO_24h noKO_24h; do
 
 	##################
 	# read bam
+	mkdir -p ../../2_pipeline/05_NucleosomeDynamics/RData/
 	docker run -v $project_dir/:/project_dir/ nucleosomedynamics_docker_edited readBAM \
 		--input /project_dir/2_pipeline/05_NucleosomeDynamics/bam/$SAMPLE.s.bam \
 		--output /project_dir/2_pipeline/05_NucleosomeDynamics/RData/$SAMPLE.RData \
@@ -32,11 +38,13 @@ for SAMPLE in iKO_24h noKO_24h; do
 
 	##################
 	# detect nucleosomes with nucleR
+	mkdir -p ../../2_pipeline/05_NucleosomeDynamics/nucleR/
 	docker run -v $project_dir/:/project_dir/ nucleosomedynamics_docker_edited nucleR \
 		--input /project_dir/2_pipeline/05_NucleosomeDynamics/RData/$SAMPLE.RData \
 		--output /project_dir/2_pipeline/05_NucleosomeDynamics/nucleR/$SAMPLE.gff \
 		--type paired --fragmentLen 175 --thresholdPercentage 50
 
+	mkdir -p ../../2_pipeline/05_NucleosomeDynamics/statistics/nucleR
 	docker run -v $project_dir/:/project_dir/ nucleosomedynamics_docker_edited nucleR_stats \
 		--input /project_dir/2_pipeline/05_NucleosomeDynamics/nucleR/$SAMPLE.gff \
 		--genome $genome_annotation \
@@ -45,11 +53,13 @@ for SAMPLE in iKO_24h noKO_24h; do
 
 	##################
 	# detect Txstart
+	mkdir -p ../../2_pipeline/05_NucleosomeDynamics/txstart/
 	docker run -v $project_dir/:/project_dir/ nucleosomedynamics_docker_edited txstart \
 		--calls /project_dir/2_pipeline/05_NucleosomeDynamics/nucleR/$SAMPLE.gff \
 		--genome $genome_annotation \
 		--output /project_dir/2_pipeline/05_NucleosomeDynamics/txstart/$SAMPLE.gff
 
+	mkdir -p ../../2_pipeline/05_NucleosomeDynamics/statistics/txstart/
 	docker run -v $project_dir/:/project_dir/ nucleosomedynamics_docker_edited txstart_stats \
 		--input /project_dir/2_pipeline/05_NucleosomeDynamics/txstart/$SAMPLE.gff \
 		--genome $genome_annotation \
@@ -60,7 +70,7 @@ done
 
 ###################
 # detect nucleosome dynamics
-
+mkdir -p ../../2_pipeline/05_NucleosomeDynamics/NucDyn/
 docker run -v $project_dir/:/project_dir/ nucleosomedynamics_docker_edited nucDyn \
 	--input2 /project_dir/2_pipeline/05_NucleosomeDynamics/RData/iKO_24h.RData \
 	--input1 /project_dir/2_pipeline/05_NucleosomeDynamics/RData/noKO_24h.RData \
@@ -70,6 +80,7 @@ docker run -v $project_dir/:/project_dir/ nucleosomedynamics_docker_edited nucDy
 	--outputBigWig /project_dir/2_pipeline/05_NucleosomeDynamics/NucDyn/24h.bw \
 	--genome $genome_sizes
 
+mkdir -p ../../2_pipeline/05_NucleosomeDynamics/statistics/NucDyn/
 docker run -v $project_dir/:/project_dir/ nucleosomedynamics_docker_edited nucDyn_stats \
 	--input /project_dir/2_pipeline/05_NucleosomeDynamics/NucDyn/24h.gff \
 	--genome $genome_annotation \
